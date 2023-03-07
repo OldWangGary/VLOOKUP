@@ -1,0 +1,165 @@
+from pyperclip import copy, paste
+import PySimpleGUI as sg
+import contextlib
+ 
+ 
+def data_source_dic(shujuyuan, direction=True, fenge='\t'):
+    if not (shujuyuan := shujuyuan.strip()):
+        return
+    data_source = shujuyuan.split('\n')
+    if fenge not in data_source[0]:
+        fenge = ' '
+    data_dic = {}
+    with contextlib.suppress():
+        for i in data_source:
+            if i:
+                fen_list = i.split(fenge)
+                if len(fen_list) > 1:  #处理单列的情况
+                    if direction:
+                        k, *_, v = fen_list  #左→右
+                    else:
+                        v, *_, k = fen_list  #右←左
+                else:
+                    k = fen_list[0]
+                    v = ''
+                if k not in data_dic:
+                    data_dic[k.strip()] = v.strip()
+        return data_dic
+ 
+ 
+def pipei(shujuyuan, daipipei):
+    with contextlib.suppress():
+        pipei_list = daipipei.split('\n')
+        return [shujuyuan.get(i.strip(), '') for i in pipei_list]
+ 
+ 
+def count_items(strs, lclean=False):
+    strs = strs.strip() if lclean else strs.rstrip()
+    return len(strs.split('\n'))
+ 
+ 
+sg.theme('GrayGrayGray')  # 设置当前主题
+ 
+#数据源
+source_input = sg.Multiline('', key='数据源', size=(35, 20))
+source_paste = sg.Button(' 粘数据源 ', key='粘数据源', pad=(8))
+source_clean = sg.Button(' 清 空 ', key='清空数据源', pad=(8))
+ 
+#待匹配
+pipei_input = sg.Multiline('', key='待匹配', size=(30, 20))
+pipei_paste = sg.Button(' 粘待匹配 ', key='粘待匹配', pad=(8))
+pipei_clean = sg.Button(' 清 空 ', key='清空待匹配', pad=(8))
+ 
+#结果
+result_lookup = sg.Button(' 执行匹配 ',
+                          key='执行匹配',
+                          button_color='#ffa631',
+                          pad=(8))
+result_input = sg.Multiline('',
+                            key='结果',
+                            size=(30, 20),
+                            background_color='#f0f0f0',
+                            text_color='#ca6924')
+result_copy = sg.Button(' 复 制 ', key='复制结果', pad=(8))
+result_clean = sg.Button(' 清 空 ', key='清空结果', pad=(8))
+ 
+#高级选项
+zuoyou_true = sg.Radio('最左 &#9654; 最右 （默认）', '模式', key="左到右", default=True, pad=(3))
+zuoyou_false = sg.Radio('最左 &#9664; 最右', '模式', key="右到左", pad=(3))
+ 
+log_output = sg.Output(key='log内容',
+                       size=(84, 3),
+                       background_color='#f0f0f0',
+                       text_color='#808080')
+ 
+#放置组件
+layout_left = [
+    [source_input],
+    [source_paste, source_clean],
+]
+ 
+layout_mid = [
+    [pipei_input],
+    [pipei_paste, pipei_clean],
+]
+ 
+layout_right = [
+    [result_input],
+    [result_lookup, result_copy, result_clean],
+]
+ 
+layout_bottom_left = [
+    [zuoyou_true],
+    [zuoyou_false],
+]
+ 
+layout_bottom_right = [[log_output]]
+ 
+#将各组件转换为sg的列
+left_col = sg.Column(layout_left, element_justification='center', pad=(5))
+mid_col = sg.Column(layout_mid, element_justification='center', pad=(5))
+right_col = sg.Column(layout_right, element_justification='center', pad=(5))
+bottom_left = sg.Column(layout_bottom_left, element_justification='left')
+bottom_right = sg.Column(layout_bottom_right,
+                         element_justification='center',
+                         pad=(9))
+ 
+# 将列布局
+layout = [
+    [left_col, mid_col, right_col],
+    [bottom_left, bottom_right],
+]
+ 
+# 创建窗口
+window = sg.Window(
+    '匹配字符 - by [url=mailto:wkdxz@52pojie.cn]wkdxz@52pojie.cn[/url]',
+    layout,
+    font=('微软雅黑', 10),
+    element_justification='center',
+    keep_on_top=True,
+    finalize=True,
+)
+ 
+while True:
+    event, values = window.read()
+    if not event:
+        break
+ 
+    jtb = paste()
+ 
+    if event == '粘数据源':
+        window['数据源'].update(jtb)
+        print(f'已粘贴{count_items(jtb)}条数据')
+    if event == '清空数据源':
+        window['数据源'].update('')
+        window['log内容'].update('')
+    if event == '粘待匹配':
+        window['待匹配'].update(jtb)
+        print(f'已粘贴{count_items(jtb)}条数据')
+    if event == '清空待匹配':
+        window['待匹配'].update('')
+        window['log内容'].update('')
+    if event == '执行匹配':
+        print('执行匹配')
+        window['结果'].update('')
+        if not values['数据源'] or not values['待匹配']:
+            print('数据源或待匹配数据为空，无法执行匹配')
+        else:
+            with contextlib.suppress():
+                shujuyuan = data_source_dic(values['数据源'], values['左到右'])
+                if pipei_list := pipei(shujuyuan, values['待匹配']):
+                    window['结果'].update('\n'.join(pipei_list))
+ 
+    if event == '复制结果':
+        # print(event, values)
+        res = values['结果']
+        if res.strip():
+            copy(res)
+            print('&#10004; 已复制匹配结果')
+        else:
+            print('结果为空，没复制任何内容')
+    if event == '清空结果':
+        window['结果'].update('')
+        window['log内容'].update('')
+ 
+window.close()
